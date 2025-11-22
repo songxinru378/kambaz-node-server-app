@@ -20,6 +20,7 @@ export default function AssignmentsRoutes(app, db) {
     };
 
     const createAssignmentForCourse = (req, res) => {
+        if (!requireFaculty(req, res)) return;
         const { courseId } = req.params;
         const assignment = {
             ...req.body,
@@ -30,16 +31,25 @@ export default function AssignmentsRoutes(app, db) {
     };
 
     const deleteAssignment = (req, res) => {
+        if (!requireFaculty(req, res)) return;
         const {assignmentId} = req.params;
         const status = dao.deleteAssignment(assignmentId);
         res.send(status);
     };
 
     const updateAssignment = async (req, res) => {
+        if (!requireFaculty(req, res)) return;
         const {assignmentId} = req.params;
         const assignmentUpdates = req.body;
         const updatedAssignment = await dao.updateAssignment(assignmentId, assignmentUpdates);
         res.send(updatedAssignment);
+    };
+
+    const requireFaculty = (req, res) => {
+        const user = req.session["currentUser"];
+        if (!user) { res.sendStatus(401); return false; }
+        if (user.role !== "FACULTY") { res.sendStatus(403); return false; }
+        return true;
     };
 
     app.get("/api/courses/:courseId/assignments", findAssignmentsForCourse);
