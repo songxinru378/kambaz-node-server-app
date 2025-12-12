@@ -8,18 +8,23 @@ const QuestionSchema = new mongoose.Schema({
   questionHtml: String,
 
   // MCQ
-  choices: [
+  choices: { 
+    type: [
     {
       text: String,
       isCorrect: Boolean,
     }
-  ],
+  ], default: [],
+  },
 
   // True/False
   correctAnswer: Boolean,
 
   // Fill in blank
-  answers: [String],
+  answers: {
+    type: [String],
+    default: []
+  },
 }, { collection: "questions" });
 
 const QuizSchema = new mongoose.Schema({

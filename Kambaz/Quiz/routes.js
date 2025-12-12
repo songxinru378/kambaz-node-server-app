@@ -1,4 +1,6 @@
-import * as dao from "./dao.js";
+import QuizzesDao from "./dao.js";
+
+const dao = QuizzesDao();
 
 const QuizzesRoutes = (app) => {
 
@@ -20,8 +22,16 @@ const QuizzesRoutes = (app) => {
 };
 
   const getQuizzesByCourse = async (req, res) => {
-    const quizzes = await dao.getQuizzesByCourse(req.params.cid);
-    res.json(quizzes);
+    let {cid} = req.params;
+    const quizzes = await dao.getQuizzesByCourse(cid);
+    //add question count to each quiz
+    const quizzesWithCounts = await  Promise.all(
+        quizzes.map(async (quiz) => {
+            const questions = await dao.getQuestionsByQuiz(quiz._id);
+            return {...quiz.toObject(), questionCount: questions.length}
+        })
+    )
+    res.json(quizzesWithCounts);
   };
 
   const createQuiz = async (req, res) => {
@@ -71,14 +81,38 @@ const QuizzesRoutes = (app) => {
     res.json(updated);
   };
 
-  // ======================
   // Questions
-  // ======================
-
   const getQuestions = async (req, res) => {
-    const questions = await dao.getQuestionsByQuiz(req.params.qid);
+    const {type, text} = req.query;
+    const {qid} = req.params;
+    if (type) {
+        const questions = await dao.findQuestionsByType(qid, type);
+        res.json(questions);
+        return;
+    }
+    if (text) {
+        const questions = await dao.findQuestionsByPartialTitle(qid, text);
+        res.json(questions);
+        return;
+    }
+    const questions = await dao.getQuestionsByQuiz(qid);
     res.json(questions);
   };
+
+  const getQuestionById = async (req, res) => {
+    const { questionId } = req.params;
+    try {
+        const question = await dao.findQuestionById(questionId);
+        if (!question) {
+        res.sendStatus(404);
+        return;
+        }
+        res.json(question);
+    } catch (e) {
+        console.error("Error fetching question by id", e);
+        res.sendStatus(500);
+    }
+   };
 
   const createQuestion = async (req, res) => {
     const user = requireUser(req,res);
@@ -108,10 +142,7 @@ const QuizzesRoutes = (app) => {
     res.sendStatus(204);
   };
 
-  // ======================
   // Attempts (Students)
-  // ======================
-
   const startAttempt = async (req, res) => {
     const user = requireUser(req, res);
     if (!user) return;
@@ -162,6 +193,7 @@ const QuizzesRoutes = (app) => {
   app.put("/api/quizzes/:qid/publish", publishQuiz);
 
   app.get("/api/quizzes/:qid/questions", getQuestions);
+  app.get("/api/questions/:questionId", getQuestionById);
   app.post("/api/quizzes/:qid/questions", createQuestion);
   app.put("/api/questions/:questionId", updateQuestion);
   app.delete("/api/questions/:questionId", deleteQuestion);
